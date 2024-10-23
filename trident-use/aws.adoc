@@ -1,0 +1,301 @@
+---
+sidebar: sidebar 
+permalink: trident-use/aws.html 
+keywords: trident backend, cloud volumes service for AWS 
+summary: Saiba como configurar o Cloud Volumes Service para AWS como back-end para sua instalação do Astra Trident usando as configurações de exemplo fornecidas. 
+---
+= Configurar um back-end CVS para AWS
+:hardbreaks:
+:allow-uri-read: 
+:icons: font
+:imagesdir: ../media/
+
+
+Saiba mais sobre como configurar o NetApp Cloud Volumes Service (CVS) para AWS como o back-end para sua instalação do Astra Trident usando as configurações de exemplo fornecidas.
+
+
+NOTE: O Cloud Volumes Service para AWS não oferece suporte a volumes inferiores a 100 GB. O Trident cria automaticamente volumes de 100 GB se um volume menor for solicitado.
+
+.O que você vai precisar
+Para configurar e usar o https://cloud.netapp.com/cloud-volumes-service-for-aws?utm_source=NetAppTrident_ReadTheDocs&utm_campaign=Trident["Cloud Volumes Service para AWS"^] back-end, você precisa do seguinte:
+
+* Uma conta da AWS configurada com o NetApp CVS
+* Região da API, URL e chaves para sua conta CVS
+
+
+
+
+== Opções de configuração de back-end
+
+Consulte a tabela a seguir para obter as opções de configuração de back-end:
+
+[cols="3"]
+|===
+| Parâmetro | Descrição | Padrão 
+
+
+| `version` |  | Sempre 1 
+
+
+| `storageDriverName` | Nome do controlador de armazenamento | "aws-cvs" 
+
+
+| `backendName` | Nome personalizado ou back-end de storage | Nome do driver e parte da chave da API 
+
+
+| `apiRegion` | Região da conta CVS. Você pode encontrar o valor no portal da Web do CVS em configurações de conta/acesso à API. |  
+
+
+| `apiURL` | URL DA API DA CONTA CVS. Você pode encontrar o valor no portal da Web do CVS em configurações de conta/acesso à API. |  
+
+
+| `apiKey` | Chave da API da conta CVS. Você pode encontrar o valor no portal da Web do CVS em configurações de conta/acesso à API. |  
+
+
+| `secretKey` | Chave secreta da conta CVS. Você pode encontrar o valor no portal da Web do CVS em configurações de conta/acesso à API. |  
+
+
+| `proxyURL` | URL do proxy se o servidor proxy for necessário para se conetar à conta CVS. O servidor proxy pode ser um proxy HTTP ou um proxy HTTPS. Para um proxy HTTPS, a validação do certificado é ignorada para permitir o uso de certificados autoassinados no servidor proxy. Os servidores proxy com autenticação ativada não são suportados. |  
+
+
+| `nfsMountOptions` | Controle refinado das opções de montagem NFS. | "3" 
+
+
+| `limitVolumeSize` | Falha no provisionamento se o tamanho do volume solicitado estiver acima desse valor | "" (não aplicado por padrão) 
+
+
+| `serviceLevel` | O nível de serviço CVS para novos volumes. Os valores são "padrão", "premium" e "extremo". | "standard" (padrão) 
+
+
+| `debugTraceFlags` | Debug flags para usar ao solucionar problemas. Exemplo, `\{"api":false, "method":true}`. Não use isso a menos que você esteja solucionando problemas e exija um despejo de log detalhado. | nulo 
+|===
+
+NOTE:  `apiURL` é único para cada `apiRegion`. Por exemplo, o US-West-2 `apiRegion` tem o https://cv.us-west-2.netapp.com:8080/v1/[] `apiURL`. Da mesma forma, o US-East-1 `apiRegion` tem o https://cds-aws-bundles.netapp.com:8080/v1/[] `apiURL`. Certifique-se de verificar o painel CVS para os parâmetros e `apiURL` corretos `apiRegion` para a configuração do back-end.
+
+Cada back-end provisiona volumes em uma única região da AWS. Para criar volumes em outras regiões, você pode definir backends adicionais.
+
+Você pode controlar como cada volume é provisionado por padrão, especificando as seguintes opções em uma seção especial do arquivo de configuração. Veja os exemplos de configuração abaixo.
+
+[cols=",,"]
+|===
+| Parâmetro | Descrição | Padrão 
+
+
+| `exportRule` | As regras de exportação para novos volumes | "0,0.0,0/0" 
+
+
+| `snapshotDir` | Controla a visibilidade `.snapshot` do diretório | "falso" 
+
+
+| `snapshotReserve` | Porcentagem de volume reservado para snapshots | "" (aceitar o padrão CVS de 0) 
+
+
+| `size` | O tamanho dos novos volumes | "100G" 
+|===
+O `exportRule` valor deve ser uma lista separada por vírgulas de qualquer combinação de endereços IPv4 ou sub-redes IPv4 na notação CIDR.
+
+
+NOTE: Para todos os volumes criados em um back-end do CVS AWS, o Astra Trident copia todas as etiquetas presentes em um pool de storage para o volume de storage no momento em que ele é provisionado. Os administradores de storage podem definir rótulos por pool de storage e agrupar todos os volumes criados em um pool de storage. Isso fornece uma maneira conveniente de diferenciar volumes com base em um conjunto de rótulos personalizáveis que são fornecidos na configuração de back-end.
+
+
+
+== Exemplo 1: Configuração mínima
+
+Esta é a configuração mínima absoluta de back-end.
+
+Essa configuração é ideal quando você está apenas começando com o CVS AWS e experimentando as coisas, mas na prática você vai querer fornecer um escopo adicional para os volumes provisionados.
+
+[listing]
+----
+{
+    "version": 1,
+    "storageDriverName": "aws-cvs",
+    "apiRegion": "us-east-1",
+    "apiURL": "https://cds-aws-bundles.netapp.com:8080/v1",
+    "apiKey": "znHczZsrrtHisIsAbOguSaPIKeyAZNchRAGzlzZE",
+    "secretKey": "rR0rUmWXfNioN1KhtHisiSAnoTherboGuskey6pU"
+}
+----
+
+
+== Exemplo 2: Configuração de nível de serviço único
+
+Este exemplo mostra um arquivo de back-end que aplica os mesmos aspectos a todo o storage criado pelo Astra Trident na região AWS US-East-1. Este exemplo também mostra o uso do `proxyURL` no arquivo de back-end.
+
+[listing]
+----
+{
+    "version": 1,
+    "storageDriverName": "aws-cvs",
+    "backendName": "cvs-aws-us-east",
+    "apiRegion": "us-east-1",
+    "apiURL": "https://cds-aws-bundles.netapp.com:8080/v1",
+    "apiKey": "znHczZsrrtHisIsAbOguSaPIKeyAZNchRAGzlzZE",
+    "secretKey": "rR0rUmWXfNioN1KhtHisiSAnoTherboGuskey6pU",
+    "proxyURL": "http://proxy-server-hostname/",
+    "nfsMountOptions": "vers=3,proto=tcp,timeo=600",
+    "limitVolumeSize": "50Gi",
+    "serviceLevel": "premium",
+    "defaults": {
+        "snapshotDir": "true",
+        "snapshotReserve": "5",
+        "exportRule": "10.0.0.0/24,10.0.1.0/24,10.0.2.100",
+        "size": "200Gi"
+    }
+}
+----
+
+
+== Exemplo 3: Configuração do pool de armazenamento virtual
+
+Este exemplo mostra o arquivo de definição de back-end configurado com pools de armazenamento virtual junto com o StorageClasses que se referem a eles.
+
+No arquivo de definição de back-end de exemplo mostrado abaixo, padrões específicos são definidos para todos os pools de armazenamento, que definem o `snapshotReserve` em 5% e o `exportRule` para 0,0.0,0/0. Os pools de armazenamento virtual são definidos na `storage` seção. Neste exemplo, cada pool de armazenamento individual define seu próprio `serviceLevel`, e alguns pools substituem os valores padrão.
+
+[listing]
+----
+{
+    "version": 1,
+    "storageDriverName": "aws-cvs",
+    "apiRegion": "us-east-1",
+    "apiURL": "https://cds-aws-bundles.netapp.com:8080/v1",
+    "apiKey": "EnterYourAPIKeyHere***********************",
+    "secretKey": "EnterYourSecretKeyHere******************",
+    "nfsMountOptions": "vers=3,proto=tcp,timeo=600",
+
+    "defaults": {
+        "snapshotReserve": "5",
+        "exportRule": "0.0.0.0/0"
+    },
+
+    "labels": {
+        "cloud": "aws"
+    },
+    "region": "us-east-1",
+
+    "storage": [
+        {
+            "labels": {
+                "performance": "extreme",
+                "protection": "extra"
+            },
+            "serviceLevel": "extreme",
+            "defaults": {
+                "snapshotDir": "true",
+                "snapshotReserve": "10",
+                "exportRule": "10.0.0.0/24"
+            }
+        },
+        {
+            "labels": {
+                "performance": "extreme",
+                "protection": "standard"
+            },
+            "serviceLevel": "extreme"
+        },
+        {
+            "labels": {
+                "performance": "premium",
+                "protection": "extra"
+            },
+            "serviceLevel": "premium",
+            "defaults": {
+                "snapshotDir": "true",
+                "snapshotReserve": "10"
+            }
+        },
+
+        {
+            "labels": {
+                "performance": "premium",
+                "protection": "standard"
+            },
+            "serviceLevel": "premium"
+        },
+
+        {
+            "labels": {
+                "performance": "standard"
+            },
+            "serviceLevel": "standard"
+        }
+    ]
+}
+----
+As seguintes definições do StorageClass referem-se aos pools de armazenamento acima. Usando o `parameters.selector` campo, você pode especificar para cada StorageClass o pool virtual usado para hospedar um volume. O volume terá os aspetos definidos no pool escolhido.
+
+O primeiro StorageClass ) (`cvs-extreme-extra-protection`mapeia para o primeiro pool de armazenamento virtual. Esse é o único pool que oferece desempenho extremo com uma reserva de snapshot de 10%. O último StorageClass ) (`cvs-extra-protection`chama qualquer pool de armazenamento que forneça uma reserva de snapshot de 10%. O Astra Trident decide qual pool de storage virtual está selecionado e garante que o requisito de reserva de snapshot seja atendido.
+
+[listing]
+----
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cvs-extreme-extra-protection
+provisioner: netapp.io/trident
+parameters:
+  selector: "performance=extreme; protection=extra"
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cvs-extreme-standard-protection
+provisioner: netapp.io/trident
+parameters:
+  selector: "performance=extreme; protection=standard"
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cvs-premium-extra-protection
+provisioner: netapp.io/trident
+parameters:
+  selector: "performance=premium; protection=extra"
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cvs-premium
+provisioner: netapp.io/trident
+parameters:
+  selector: "performance=premium; protection=standard"
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cvs-standard
+provisioner: netapp.io/trident
+parameters:
+  selector: "performance=standard"
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cvs-extra-protection
+provisioner: netapp.io/trident
+parameters:
+  selector: "protection=extra"
+allowVolumeExpansion: true
+----
+
+
+== O que se segue?
+
+Depois de criar o arquivo de configuração de back-end, execute o seguinte comando:
+
+[listing]
+----
+tridentctl create backend -f <backend-file>
+----
+Se a criação do backend falhar, algo está errado com a configuração do backend. Você pode exibir os logs para determinar a causa executando o seguinte comando:
+
+[listing]
+----
+tridentctl logs
+----
+Depois de identificar e corrigir o problema com o arquivo de configuração, você pode executar o comando create novamente.
